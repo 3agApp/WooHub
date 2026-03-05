@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\WooShop;
 use App\Services\WooCommerce\WooOrderSyncService;
 use Illuminate\Console\Command;
+use Throwable;
 
 class WooSyncCommand extends Command
 {
@@ -45,15 +46,35 @@ class WooSyncCommand extends Command
 
         $this->info('Syncing '.$shops->count().' WooShop(s)...');
 
-        $result = $syncService->syncMany($shops);
+        $ordersCount = 0;
+        $failedShops = [];
+
+        foreach ($shops as $index => $shop) {
+            if (! $shop instanceof WooShop) {
+                continue;
+            }
+
+            $shopNumber = $index + 1;
+
+            try {
+                $processedOrders = $syncService->syncShop($shop);
+                $ordersCount += $processedOrders;
+
+                $this->line("[{$shopNumber}/{$shops->count()}] {$shop->name}: synced {$processedOrders} order(s)");
+            } catch (Throwable $exception) {
+                $failedShops[] = $shop->name;
+
+                $this->error("[{$shopNumber}/{$shops->count()}] {$shop->name}: failed ({$exception->getMessage()})");
+            }
+        }
 
         $this->newLine();
         $this->info('Sync finished.');
-        $this->line('Orders processed: '.$result['orders_count']);
-        $this->line('Shops attempted: '.$result['shops_count']);
+        $this->line('Orders processed: '.$ordersCount);
+        $this->line('Shops attempted: '.$shops->count());
 
-        if ($result['failed_shops'] !== []) {
-            $this->error('Failed shops: '.implode(', ', $result['failed_shops']));
+        if ($failedShops !== []) {
+            $this->error('Failed shops: '.implode(', ', $failedShops));
 
             return self::FAILURE;
         }
