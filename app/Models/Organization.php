@@ -32,9 +32,9 @@ class Organization extends Model implements HasName
         return $this->hasMany(WooShop::class);
     }
 
-    public function wooOrders(): HasManyThrough
+    public function wooDailyRevenues(): HasManyThrough
     {
-        return $this->hasManyThrough(WooOrder::class, WooShop::class);
+        return $this->hasManyThrough(WooDailyRevenue::class, WooShop::class);
     }
 
     public function getFilamentName(): string

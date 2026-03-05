@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Organization;
-use App\Models\WooOrder;
+use App\Models\WooDailyRevenue;
 use App\Models\WooShop;
 use App\Services\Revenue\RevenueAnalyticsService;
 use Illuminate\Support\Carbon;
@@ -12,39 +12,25 @@ it('calculates current revenue, previous period revenue, and growth', function (
     $organization = Organization::factory()->create();
     $shop = WooShop::factory()->for($organization)->create();
 
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'completed',
-        'total' => 100,
+    WooDailyRevenue::factory()->for($shop, 'wooShop')->create([
+        'revenue_date' => '2026-03-04',
+        'revenue_total' => 370,
+        'orders_count' => 4,
         'currency' => 'CHF',
-        'order_created_at' => '2026-03-04 10:00:00',
     ]);
 
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'processing',
-        'total' => 50,
+    WooDailyRevenue::factory()->for($shop, 'wooShop')->create([
+        'revenue_date' => '2026-03-03',
+        'revenue_total' => 300,
+        'orders_count' => 3,
         'currency' => 'CHF',
-        'order_created_at' => '2026-03-03 10:00:00',
     ]);
 
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'pending',
-        'total' => 300,
+    WooDailyRevenue::factory()->for($shop, 'wooShop')->create([
+        'revenue_date' => '2026-03-01',
+        'revenue_total' => 60,
+        'orders_count' => 1,
         'currency' => 'CHF',
-        'order_created_at' => '2026-03-03 09:00:00',
-    ]);
-
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'on-hold',
-        'total' => 220,
-        'currency' => 'CHF',
-        'order_created_at' => '2026-03-03 11:00:00',
-    ]);
-
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'completed',
-        'total' => 60,
-        'currency' => 'CHF',
-        'order_created_at' => '2026-03-01 10:00:00',
     ]);
 
     $stats = app(RevenueAnalyticsService::class)->overviewStats($organization, [
@@ -54,10 +40,10 @@ it('calculates current revenue, previous period revenue, and growth', function (
         'aggregation' => 'combined',
     ]);
 
-    expect($stats['current_revenue'])->toBe(150.0)
+    expect($stats['current_revenue'])->toBe(670.0)
         ->and($stats['previous_revenue'])->toBe(60.0)
-        ->and(round($stats['growth_rate'] ?? 0, 2))->toBe(150.0)
-        ->and($stats['orders_count'])->toBe(4)
+        ->and(round($stats['growth_rate'] ?? 0, 2))->toBe(1016.67)
+        ->and($stats['orders_count'])->toBe(7)
         ->and($stats['currency'])->toBe('CHF');
 
     Carbon::setTestNow();
@@ -68,16 +54,16 @@ it('builds chart datasets for combined and per-shop modes', function () {
     $shopA = WooShop::factory()->for($organization)->create(['name' => 'Shop A']);
     $shopB = WooShop::factory()->for($organization)->create(['name' => 'Shop B']);
 
-    WooOrder::factory()->for($shopA, 'wooShop')->create([
-        'status' => 'completed',
-        'total' => 100,
-        'order_created_at' => '2026-03-04 10:00:00',
+    WooDailyRevenue::factory()->for($shopA, 'wooShop')->create([
+        'revenue_date' => '2026-03-04',
+        'revenue_total' => 100,
+        'orders_count' => 1,
     ]);
 
-    WooOrder::factory()->for($shopB, 'wooShop')->create([
-        'status' => 'completed',
-        'total' => 200,
-        'order_created_at' => '2026-03-04 11:00:00',
+    WooDailyRevenue::factory()->for($shopB, 'wooShop')->create([
+        'revenue_date' => '2026-03-04',
+        'revenue_total' => 200,
+        'orders_count' => 1,
     ]);
 
     $service = app(RevenueAnalyticsService::class);
@@ -108,26 +94,26 @@ it('builds chart datasets for combined and per-shop modes', function () {
     Carbon::setTestNow();
 });
 
-it('supports custom revenue statuses and monthly trend interval', function () {
+it('supports monthly trend interval', function () {
     $organization = Organization::factory()->create();
     $shop = WooShop::factory()->for($organization)->create();
 
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'on-hold',
-        'total' => 80,
-        'order_created_at' => '2026-01-10 10:00:00',
+    WooDailyRevenue::factory()->for($shop, 'wooShop')->create([
+        'revenue_date' => '2026-01-10',
+        'revenue_total' => 80,
+        'orders_count' => 1,
     ]);
 
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'on-hold',
-        'total' => 120,
-        'order_created_at' => '2026-02-18 10:00:00',
+    WooDailyRevenue::factory()->for($shop, 'wooShop')->create([
+        'revenue_date' => '2026-02-18',
+        'revenue_total' => 120,
+        'orders_count' => 1,
     ]);
 
-    WooOrder::factory()->for($shop, 'wooShop')->create([
-        'status' => 'completed',
-        'total' => 500,
-        'order_created_at' => '2026-03-02 10:00:00',
+    WooDailyRevenue::factory()->for($shop, 'wooShop')->create([
+        'revenue_date' => '2026-03-02',
+        'revenue_total' => 500,
+        'orders_count' => 1,
     ]);
 
     $service = app(RevenueAnalyticsService::class);
@@ -136,10 +122,9 @@ it('supports custom revenue statuses and monthly trend interval', function () {
         'startDate' => '2026-01-01',
         'endDate' => '2026-03-31',
         'shopIds' => [$shop->id],
-        'revenueStatuses' => ['on-hold'],
     ]);
 
-    expect($stats['current_revenue'])->toBe(200.0);
+    expect($stats['current_revenue'])->toBe(700.0);
 
     $trend = $service->trendChart($organization, [
         'startDate' => '2026-01-01',
@@ -147,11 +132,10 @@ it('supports custom revenue statuses and monthly trend interval', function () {
         'shopIds' => [$shop->id],
         'aggregation' => 'combined',
         'trendGranularity' => 'month',
-        'revenueStatuses' => ['on-hold'],
     ]);
 
     expect($trend['labels'])->toHaveCount(3)
         ->and($trend['datasets'][0]['data'][0])->toBe(80.0)
         ->and($trend['datasets'][0]['data'][1])->toBe(120.0)
-        ->and($trend['datasets'][0]['data'][2])->toBe(0.0);
+        ->and($trend['datasets'][0]['data'][2])->toBe(500.0);
 });

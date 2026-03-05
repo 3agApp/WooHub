@@ -43,8 +43,8 @@ class WooShop extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function orders(): HasMany
+    public function dailyRevenues(): HasMany
     {
-        return $this->hasMany(WooOrder::class);
+        return $this->hasMany(WooDailyRevenue::class);
     }
 }

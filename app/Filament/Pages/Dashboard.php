@@ -7,7 +7,6 @@ use App\Filament\Widgets\OrganizationMembersWidget;
 use App\Filament\Widgets\RevenueStatsWidget;
 use App\Filament\Widgets\RevenueTrendChartWidget;
 use App\Models\Organization;
-use App\Services\Revenue\RevenueAnalyticsService;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -94,20 +93,6 @@ class Dashboard extends BaseDashboard
                             'day' => 'Daily',
                             'week' => 'Weekly',
                             'month' => 'Monthly',
-                        ]),
-                    Select::make('revenueStatuses')
-                        ->label('Revenue statuses')
-                        ->multiple()
-                        ->default(RevenueAnalyticsService::DEFAULT_REVENUE_STATUSES)
-                        ->options([
-                            'pending' => 'Pending payment',
-                            'processing' => 'Processing',
-                            'on-hold' => 'On hold',
-                            'completed' => 'Completed',
-                            'cancelled' => 'Cancelled',
-                            'refunded' => 'Refunded',
-                            'failed' => 'Failed',
-                            'trash' => 'Trash',
                         ]),
                 ])
                 ->columns(1),

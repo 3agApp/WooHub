@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class WooOrder extends Model
+class WooDailyRevenue extends Model
 {
-    /** @use HasFactory<\Database\Factories\WooOrderFactory> */
+    /** @use HasFactory<\Database\Factories\WooDailyRevenueFactory> */
     use HasFactory;
 
     /**
@@ -16,15 +16,10 @@ class WooOrder extends Model
      */
     protected $fillable = [
         'woo_shop_id',
-        'external_order_id',
-        'order_number',
-        'status',
+        'revenue_date',
         'currency',
-        'total',
-        'customer_name',
-        'customer_email',
-        'order_created_at',
-        'order_paid_at',
+        'revenue_total',
+        'orders_count',
     ];
 
     /**
@@ -33,9 +28,9 @@ class WooOrder extends Model
     protected function casts(): array
     {
         return [
-            'total' => 'decimal:2',
-            'order_created_at' => 'datetime',
-            'order_paid_at' => 'datetime',
+            'revenue_date' => 'date',
+            'revenue_total' => 'decimal:2',
+            'orders_count' => 'integer',
         ];
     }
 

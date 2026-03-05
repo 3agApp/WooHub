@@ -41,7 +41,7 @@ class RevenueStatsWidget extends StatsOverviewWidget
             Stat::make('Growth', $growthRate === null ? '—' : number_format($growthRate, 2).'%')
                 ->description($growthText)
                 ->color($growthRate !== null && $growthRate < 0 ? 'danger' : 'success'),
-            Stat::make('Orders', number_format($stats['orders_count'])),
+            Stat::make('Eligible orders', number_format($stats['orders_count'])),
         ];
     }
 }

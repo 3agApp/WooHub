@@ -2,16 +2,15 @@
 
 namespace App\Services\WooCommerce;
 
-use App\Models\WooOrder;
+use App\Models\WooDailyRevenue;
 use App\Models\WooShop;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
-class WooOrderSyncService
+class WooRevenueSyncService
 {
     /**
      * @return array{success:bool,message:string}
@@ -73,6 +72,7 @@ class WooOrderSyncService
         $ordersCount = 0;
         $currentPage = 1;
         $totalPages = 1;
+        $dailyTotals = [];
 
         try {
             do {
@@ -95,35 +95,41 @@ class WooOrderSyncService
                     break;
                 }
 
-                $payload = collect($orders)
-                    ->filter(fn (mixed $order): bool => is_array($order) && Arr::has($order, 'id'))
-                    ->map(fn (array $order): array => $this->mapOrderPayload($shop, $order, $now))
-                    ->values()
-                    ->all();
+                [$pageTotals, $pageOrdersCount] = $this->aggregateDailyRevenue($shop, $orders);
 
-                if ($payload !== []) {
-                    WooOrder::query()->upsert(
-                        $payload,
-                        ['woo_shop_id', 'external_order_id'],
-                        [
-                            'order_number',
-                            'status',
-                            'currency',
-                            'total',
-                            'customer_name',
-                            'customer_email',
-                            'order_created_at',
-                            'order_paid_at',
-                            'updated_at',
-                        ],
-                    );
+                foreach ($pageTotals as $key => $row) {
+                    if (! isset($dailyTotals[$key])) {
+                        $dailyTotals[$key] = $row;
 
-                    $ordersCount += count($payload);
+                        continue;
+                    }
+
+                    $dailyTotals[$key]['revenue_total'] += $row['revenue_total'];
+                    $dailyTotals[$key]['orders_count'] += $row['orders_count'];
                 }
+
+                $ordersCount += $pageOrdersCount;
 
                 $totalPages = max((int) ($response->header('X-WP-TotalPages') ?? 1), 1);
                 $currentPage++;
             } while ($currentPage <= $totalPages);
+
+            if ($dailyTotals !== []) {
+                $payload = collect($dailyTotals)
+                    ->values()
+                    ->map(fn (array $row): array => [
+                        ...$row,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->all();
+
+                WooDailyRevenue::query()->upsert(
+                    $payload,
+                    ['woo_shop_id', 'revenue_date', 'currency'],
+                    ['revenue_total', 'orders_count', 'updated_at'],
+                );
+            }
 
             $shop->forceFill([
                 'last_synced_at' => $now,
@@ -144,27 +150,52 @@ class WooOrderSyncService
     }
 
     /**
-     * @param  array<string, mixed>  $order
-     * @return array<string, mixed>
+     * @param  list<mixed>  $orders
+     * @return array{0:array<string, array<string, mixed>>,1:int}
      */
-    private function mapOrderPayload(WooShop $shop, array $order, CarbonInterface $now): array
+    private function aggregateDailyRevenue(WooShop $shop, array $orders): array
     {
-        $customerName = trim((string) Arr::get($order, 'billing.first_name').' '.(string) Arr::get($order, 'billing.last_name'));
+        $dailyTotals = [];
+        $ordersCount = 0;
 
-        return [
-            'woo_shop_id' => $shop->getKey(),
-            'external_order_id' => (int) Arr::get($order, 'id'),
-            'order_number' => (string) (Arr::get($order, 'number') ?? Arr::get($order, 'id')),
-            'status' => (string) Arr::get($order, 'status', 'unknown'),
-            'currency' => Arr::get($order, 'currency') ? (string) Arr::get($order, 'currency') : null,
-            'total' => (float) Arr::get($order, 'total', 0),
-            'customer_name' => $customerName !== '' ? $customerName : null,
-            'customer_email' => Arr::get($order, 'billing.email') ? (string) Arr::get($order, 'billing.email') : null,
-            'order_created_at' => $this->parseDate(Arr::get($order, 'date_created_gmt') ?? Arr::get($order, 'date_created')),
-            'order_paid_at' => $this->parseDate(Arr::get($order, 'date_paid_gmt') ?? Arr::get($order, 'date_paid')),
-            'created_at' => $now,
-            'updated_at' => $now,
-        ];
+        foreach ($orders as $order) {
+            if (! is_array($order)) {
+                continue;
+            }
+
+            $status = strtolower((string) Arr::get($order, 'status', 'unknown'));
+
+            if (! in_array($status, ['processing', 'completed'], true)) {
+                continue;
+            }
+
+            $orderCreatedAt = $this->parseDate(Arr::get($order, 'date_created_gmt') ?? Arr::get($order, 'date_created'));
+
+            if (! $orderCreatedAt) {
+                continue;
+            }
+
+            $currency = trim((string) Arr::get($order, 'currency', 'CHF'));
+            $currency = $currency !== '' ? $currency : 'CHF';
+
+            $key = $orderCreatedAt->toDateString().'|'.$currency;
+
+            if (! isset($dailyTotals[$key])) {
+                $dailyTotals[$key] = [
+                    'woo_shop_id' => $shop->getKey(),
+                    'revenue_date' => $orderCreatedAt->toDateString(),
+                    'currency' => $currency,
+                    'revenue_total' => 0.0,
+                    'orders_count' => 0,
+                ];
+            }
+
+            $dailyTotals[$key]['revenue_total'] += (float) Arr::get($order, 'total', 0);
+            $dailyTotals[$key]['orders_count'] += 1;
+            $ordersCount++;
+        }
+
+        return [$dailyTotals, $ordersCount];
     }
 
     private function normalizeBaseUrl(string $url): string

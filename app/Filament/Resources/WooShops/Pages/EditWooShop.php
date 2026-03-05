@@ -4,7 +4,7 @@ namespace App\Filament\Resources\WooShops\Pages;
 
 use App\Filament\Resources\WooShops\WooShopResource;
 use App\Models\WooShop;
-use App\Services\WooCommerce\WooOrderSyncService;
+use App\Services\WooCommerce\WooRevenueSyncService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -23,7 +23,7 @@ class EditWooShop extends EditRecord
                 ->action(function (): void {
                     /** @var WooShop $record */
                     $record = $this->record;
-                    $result = app(WooOrderSyncService::class)->testConnection($record);
+                    $result = app(WooRevenueSyncService::class)->testConnection($record);
 
                     $notification = Notification::make()
                         ->title($result['success'] ? 'Connection successful' : 'Connection failed')

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\WooShops\Tables;
 
 use App\Models\WooShop;
-use App\Services\WooCommerce\WooOrderSyncService;
+use App\Services\WooCommerce\WooRevenueSyncService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -48,7 +48,7 @@ class WooShopsTable
                     ->label('Test connection')
                     ->icon('heroicon-o-signal')
                     ->action(function (WooShop $record): void {
-                        $result = app(WooOrderSyncService::class)->testConnection($record);
+                        $result = app(WooRevenueSyncService::class)->testConnection($record);
 
                         $notification = Notification::make()
                             ->title($result['success'] ? 'Connection successful' : 'Connection failed')

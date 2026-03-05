@@ -1,13 +1,13 @@
 <?php
 
 use App\Models\Organization;
-use App\Models\WooOrder;
+use App\Models\WooDailyRevenue;
 use App\Models\WooShop;
-use App\Services\WooCommerce\WooOrderSyncService;
+use App\Services\WooCommerce\WooRevenueSyncService;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
-it('syncs woocommerce orders across paginated responses', function () {
+it('syncs woocommerce orders into daily revenue aggregates', function () {
     $shop = WooShop::factory()->for(Organization::factory())->create([
         'url' => 'https://toysonline.ch',
         'consumer_key' => 'ck_test_key',
@@ -31,6 +31,14 @@ it('syncs woocommerce orders across paginated responses', function () {
                         'email' => 'jane@example.com',
                     ],
                 ],
+                [
+                    'id' => 103,
+                    'number' => '103',
+                    'status' => 'pending',
+                    'currency' => 'CHF',
+                    'total' => '999.00',
+                    'date_created_gmt' => '2026-03-01T12:00:00',
+                ],
             ], 200, ['X-WP-TotalPages' => 2])
             ->push([
                 [
@@ -50,10 +58,12 @@ it('syncs woocommerce orders across paginated responses', function () {
             ], 200, ['X-WP-TotalPages' => 2]),
     ]);
 
-    $processed = app(WooOrderSyncService::class)->syncShop($shop);
+    $processed = app(WooRevenueSyncService::class)->syncShop($shop);
 
     expect($processed)->toBe(2)
-        ->and(WooOrder::query()->count())->toBe(2);
+        ->and(WooDailyRevenue::query()->count())->toBe(2)
+        ->and(WooDailyRevenue::query()->sum('orders_count'))->toBe(2)
+        ->and((float) WooDailyRevenue::query()->sum('revenue_total'))->toBe(207.5);
 
     $shop->refresh();
 
@@ -73,7 +83,7 @@ it('marks a shop as failed when the woocommerce request fails', function () {
         ], 401),
     ]);
 
-    expect(fn () => app(WooOrderSyncService::class)->syncShop($shop))
+    expect(fn () => app(WooRevenueSyncService::class)->syncShop($shop))
         ->toThrow(RequestException::class);
 
     $shop->refresh();
@@ -94,7 +104,7 @@ it('can test shop connection successfully', function () {
         'https://toysonline.ch/wp-json/wc/v3/orders*' => Http::response([], 200, ['X-WP-Total' => 42]),
     ]);
 
-    $result = app(WooOrderSyncService::class)->testConnection($shop);
+    $result = app(WooRevenueSyncService::class)->testConnection($shop);
 
     expect($result['success'])->toBeTrue()
         ->and($result['message'])->toContain('Connection successful');
@@ -111,7 +121,7 @@ it('reports connection test failure', function () {
         ], 401),
     ]);
 
-    $result = app(WooOrderSyncService::class)->testConnection($shop);
+    $result = app(WooRevenueSyncService::class)->testConnection($shop);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('401');

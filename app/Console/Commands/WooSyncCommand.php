@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\WooShop;
-use App\Services\WooCommerce\WooOrderSyncService;
+use App\Services\WooCommerce\WooRevenueSyncService;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -21,12 +21,12 @@ class WooSyncCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Sync WooCommerce orders for one or more shops';
+    protected $description = 'Sync WooCommerce daily revenue for one or more shops';
 
     /**
      * Execute the console command.
      */
-    public function handle(WooOrderSyncService $syncService): int
+    public function handle(WooRevenueSyncService $syncService): int
     {
         $shopIds = collect($this->option('shop'))
             ->map(fn (mixed $id): int => (int) $id)
@@ -60,7 +60,7 @@ class WooSyncCommand extends Command
                 $processedOrders = $syncService->syncShop($shop);
                 $ordersCount += $processedOrders;
 
-                $this->line("[{$shopNumber}/{$shops->count()}] {$shop->name}: synced {$processedOrders} order(s)");
+                $this->line("[{$shopNumber}/{$shops->count()}] {$shop->name}: synced {$processedOrders} eligible order(s)");
             } catch (Throwable $exception) {
                 $failedShops[] = $shop->name;
 
@@ -70,7 +70,7 @@ class WooSyncCommand extends Command
 
         $this->newLine();
         $this->info('Sync finished.');
-        $this->line('Orders processed: '.$ordersCount);
+        $this->line('Eligible orders processed: '.$ordersCount);
         $this->line('Shops attempted: '.$shops->count());
 
         if ($failedShops !== []) {

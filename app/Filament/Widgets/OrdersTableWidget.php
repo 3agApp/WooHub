@@ -3,7 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Organization;
-use App\Models\WooOrder;
+use App\Models\WooDailyRevenue;
 use App\Services\Revenue\RevenueAnalyticsService;
 use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
@@ -20,7 +20,7 @@ class OrdersTableWidget extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
-    protected static ?string $heading = 'Orders';
+    protected static ?string $heading = 'Daily revenue';
 
     public function table(Table $table): Table
     {
@@ -31,52 +31,43 @@ class OrdersTableWidget extends TableWidget
                     ->label('Shop')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('external_order_id')
-                    ->label('Order ID')
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('order_number')
-                    ->label('Order no.')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('status')
-                    ->badge()
+                TextColumn::make('revenue_date')
+                    ->label('Date')
+                    ->date()
                     ->sortable(),
-                TextColumn::make('total')
-                    ->label('Total')
+                TextColumn::make('orders_count')
+                    ->label('Orders')
+                    ->sortable(),
+                TextColumn::make('revenue_total')
+                    ->label('Revenue')
                     ->alignEnd()
                     ->sortable()
-                    ->formatStateUsing(fn (mixed $state, WooOrder $record): string => number_format((float) $state, 2).' '.($record->currency ?? '')),
-                TextColumn::make('customer_name')
-                    ->label('Customer')
-                    ->searchable()
-                    ->toggleable(),
-                TextColumn::make('customer_email')
-                    ->label('Email')
-                    ->searchable()
+                    ->formatStateUsing(fn (mixed $state, WooDailyRevenue $record): string => number_format((float) $state, 2).' '.($record->currency ?? 'CHF')),
+                TextColumn::make('currency')
+                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('order_created_at')
-                    ->label('Created at')
+                TextColumn::make('updated_at')
+                    ->label('Last updated')
                     ->dateTime()
                     ->sortable(),
             ])
-            ->defaultSort('order_created_at', 'desc')
+            ->defaultSort('revenue_date', 'desc')
             ->paginated([10, 25, 50, 100]);
     }
 
     /**
-     * @return Builder<WooOrder>
+     * @return Builder<WooDailyRevenue>
      */
     private function getOrdersQuery(): Builder
     {
         $tenant = Filament::getTenant();
 
         if (! $tenant instanceof Organization) {
-            return WooOrder::query()->whereKey(-1);
+            return WooDailyRevenue::query()->whereKey(-1);
         }
 
         return app(RevenueAnalyticsService::class)
-            ->ordersQuery($tenant, $this->pageFilters)
-            ->latest('order_created_at');
+            ->dailyRevenueQuery($tenant, $this->pageFilters)
+            ->latest('revenue_date');
     }
 }
