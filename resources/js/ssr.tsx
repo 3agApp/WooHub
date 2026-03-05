@@ -2,6 +2,8 @@ import { createInertiaApp } from '@inertiajs/react';
 import createServer from '@inertiajs/react/server';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { renderToString } from 'react-dom/server';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -17,9 +19,17 @@ createServer((page) =>
                 import.meta.glob('./pages/**/*.tsx'),
             ),
         setup: ({ App, props }) => (
-            <TooltipProvider>
-                <App {...props} />
-            </TooltipProvider>
+            <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+            >
+                <TooltipProvider>
+                    <App {...props} />
+                    <Toaster />
+                </TooltipProvider>
+            </ThemeProvider>
         ),
     }),
 );

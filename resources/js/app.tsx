@@ -1,6 +1,8 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import '../css/app.css';
 
@@ -17,9 +19,17 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <TooltipProvider>
-                <App {...props} />
-            </TooltipProvider>,
+            <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+            >
+                <TooltipProvider>
+                    <App {...props} />
+                    <Toaster />
+                </TooltipProvider>
+            </ThemeProvider>,
         );
     },
     progress: {
