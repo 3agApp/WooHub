@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Organization extends Model implements HasName
 {
@@ -29,6 +30,11 @@ class Organization extends Model implements HasName
     public function wooShops(): HasMany
     {
         return $this->hasMany(WooShop::class);
+    }
+
+    public function wooOrders(): HasManyThrough
+    {
+        return $this->hasManyThrough(WooOrder::class, WooShop::class);
     }
 
     public function getFilamentName(): string

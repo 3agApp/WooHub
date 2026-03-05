@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WooShop extends Model
 {
@@ -20,6 +21,9 @@ class WooShop extends Model
         'url',
         'consumer_key',
         'consumer_secret',
+        'last_synced_at',
+        'last_sync_status',
+        'last_sync_error',
     ];
 
     /**
@@ -30,11 +34,17 @@ class WooShop extends Model
         return [
             'consumer_key' => 'encrypted',
             'consumer_secret' => 'encrypted',
+            'last_synced_at' => 'datetime',
         ];
     }
 
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(WooOrder::class);
     }
 }
