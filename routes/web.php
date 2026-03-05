@@ -6,6 +6,13 @@ use Inertia\Inertia;
 Route::redirect('/', '/dashboard')->name('home');
 
 if (app()->environment('local')) {
+    Route::get('/phpinfo', function () {
+        ob_start();
+        phpinfo();
+
+        return response((string) ob_get_clean(), 200, ['Content-Type' => 'text/html']);
+    })->name('phpinfo');
+
     Route::get('/flash-test/{type}', function (string $type) {
         $toast = match ($type) {
             'success' => [
