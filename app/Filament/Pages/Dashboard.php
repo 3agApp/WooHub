@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\OrdersTableWidget;
+use App\Filament\Widgets\OrganizationMembersWidget;
 use App\Filament\Widgets\RevenueStatsWidget;
 use App\Filament\Widgets\RevenueTrendChartWidget;
 use App\Models\Organization;
@@ -105,6 +106,7 @@ class Dashboard extends BaseDashboard
             RevenueStatsWidget::class,
             RevenueTrendChartWidget::class,
             OrdersTableWidget::class,
+            OrganizationMembersWidget::class,
         ];
     }
 
