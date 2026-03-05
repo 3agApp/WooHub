@@ -21,7 +21,6 @@ class WooShopFactory extends Factory
             'organization_id' => Organization::factory(),
             'name' => fake()->company().' Shop',
             'url' => fake()->url(),
-            'currency' => fake()->currencyCode(),
             'consumer_key' => 'ck_'.fake()->regexify('[A-Za-z0-9]{32}'),
             'consumer_secret' => 'cs_'.fake()->regexify('[A-Za-z0-9]{32}'),
         ];

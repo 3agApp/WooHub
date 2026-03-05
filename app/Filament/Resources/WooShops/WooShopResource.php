@@ -19,13 +19,15 @@ class WooShopResource extends Resource
 {
     protected static ?string $model = WooShop::class;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static ?string $modelLabel = 'WooShop';
 
     protected static ?string $pluralModelLabel = 'WooShops';
 
     protected static string|UnitEnum|null $navigationGroup = 'Organization';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
     public static function form(Schema $schema): Schema
     {

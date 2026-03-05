@@ -16,7 +16,6 @@ return new class extends Migration
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('url');
-            $table->string('currency', 3);
             $table->text('consumer_key');
             $table->text('consumer_secret');
             $table->timestamps();

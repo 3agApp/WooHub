@@ -18,7 +18,6 @@ class WooShop extends Model
         'organization_id',
         'name',
         'url',
-        'currency',
         'consumer_key',
         'consumer_secret',
     ];

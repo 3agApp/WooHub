@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\WooShops\Tables;
 
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -15,11 +16,14 @@ class WooShopsTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->searchable(),
+                    ->label('Shop name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium'),
                 TextColumn::make('url')
-                    ->searchable(),
-                TextColumn::make('currency')
-                    ->searchable(),
+                    ->label('Shop URL')
+                    ->searchable()
+                    ->copyable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -32,8 +36,12 @@ class WooShopsTable
             ->filters([
                 //
             ])
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading('No WooShops found')
+            ->emptyStateDescription('Create your first WooShop for this organization to start syncing data.')
             ->recordActions([
                 EditAction::make(),
+                DeleteAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
