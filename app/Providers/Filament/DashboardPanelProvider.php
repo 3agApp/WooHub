@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Tenancy\RegisterOrganization;
+use App\Models\Organization;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -29,6 +31,8 @@ class DashboardPanelProvider extends PanelProvider
             ->path('dashboard')
             ->login()
             ->registration()
+            ->tenant(Organization::class)
+            ->tenantRegistration(RegisterOrganization::class)
             ->colors([
                 'primary' => Color::Amber,
             ])
