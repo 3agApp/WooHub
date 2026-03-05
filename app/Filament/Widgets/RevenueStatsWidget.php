@@ -13,6 +13,8 @@ class RevenueStatsWidget extends StatsOverviewWidget
 {
     use InteractsWithPageFilters;
 
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     /**

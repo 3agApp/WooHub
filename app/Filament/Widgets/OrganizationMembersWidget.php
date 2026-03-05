@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class OrganizationMembersWidget extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     protected static ?string $heading = 'Organization members';

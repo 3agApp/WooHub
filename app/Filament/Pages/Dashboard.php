@@ -98,10 +98,6 @@ class Dashboard extends BaseDashboard
                     Select::make('revenueStatuses')
                         ->label('Revenue statuses')
                         ->multiple()
-                        ->columnSpan([
-                            'md' => 2,
-                            'xl' => 3,
-                        ])
                         ->default(RevenueAnalyticsService::DEFAULT_REVENUE_STATUSES)
                         ->options([
                             'pending' => 'Pending payment',
@@ -114,10 +110,7 @@ class Dashboard extends BaseDashboard
                             'trash' => 'Trash',
                         ]),
                 ])
-                ->columns([
-                    'md' => 2,
-                    'xl' => 3,
-                ]),
+                ->columns(1),
         ];
     }
 

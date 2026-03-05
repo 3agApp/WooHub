@@ -26,11 +26,13 @@ class RevenueAnalyticsService
     public const ALLOWED_GRANULARITIES = ['day', 'week', 'month'];
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed> | null  $filters
      * @return array{start:CarbonImmutable,end:CarbonImmutable,shop_ids:Collection<int, int>,aggregation:string,granularity:string,revenue_statuses:list<string>}
      */
-    public function resolveFilters(Organization $organization, array $filters): array
+    public function resolveFilters(Organization $organization, ?array $filters): array
     {
+        $filters ??= [];
+
         $end = isset($filters['endDate']) && is_string($filters['endDate'])
             ? CarbonImmutable::parse($filters['endDate'])
             : now()->toImmutable();
@@ -74,10 +76,10 @@ class RevenueAnalyticsService
     }
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed> | null  $filters
      * @return Builder<WooOrder>
      */
-    public function ordersQuery(Organization $organization, array $filters): Builder
+    public function ordersQuery(Organization $organization, ?array $filters): Builder
     {
         $resolved = $this->resolveFilters($organization, $filters);
 
@@ -88,10 +90,10 @@ class RevenueAnalyticsService
     }
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed> | null  $filters
      * @return array{current_revenue:float,previous_revenue:float,growth_rate:float|null,orders_count:int,currency:string}
      */
-    public function overviewStats(Organization $organization, array $filters): array
+    public function overviewStats(Organization $organization, ?array $filters): array
     {
         $resolved = $this->resolveFilters($organization, $filters);
         $daysInPeriod = $resolved['start']->diffInDays($resolved['end']) + 1;
@@ -126,10 +128,10 @@ class RevenueAnalyticsService
     }
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed> | null  $filters
      * @return array{labels:list<string>,datasets:list<array<string,mixed>>}
      */
-    public function trendChart(Organization $organization, array $filters): array
+    public function trendChart(Organization $organization, ?array $filters): array
     {
         $resolved = $this->resolveFilters($organization, $filters);
         $bucketStarts = $this->buildBucketStarts($resolved['start'], $resolved['end'], $resolved['granularity']);

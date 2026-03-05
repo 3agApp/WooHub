@@ -16,6 +16,8 @@ class OrdersTableWidget extends TableWidget
 {
     use InteractsWithPageFilters;
 
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     protected static ?string $heading = 'Orders';

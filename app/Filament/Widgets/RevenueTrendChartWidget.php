@@ -12,6 +12,8 @@ class RevenueTrendChartWidget extends ChartWidget
 {
     use InteractsWithPageFilters;
 
+    protected static bool $isLazy = false;
+
     protected ?string $heading = 'Revenue trend';
 
     protected ?string $pollingInterval = null;
