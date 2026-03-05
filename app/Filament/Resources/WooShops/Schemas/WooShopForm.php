@@ -6,7 +6,9 @@ use App\Models\WooShop;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class WooShopForm
 {
@@ -35,6 +37,9 @@ class WooShopForm
                             ->required()
                             ->password()
                             ->revealable()
+                            ->helperText(fn (Get $get, ?string $operation): ?HtmlString => $operation === 'edit'
+                                ? self::keysHelperText($get('url'))
+                                : null)
                             ->columnSpanFull(),
                         TextInput::make('consumer_secret')
                             ->label('Consumer secret')
@@ -58,5 +63,12 @@ class WooShopForm
                             ->content(fn (?WooShop $record): string => $record?->updated_at?->toDayDateTimeString() ?? '—'),
                     ]),
             ]);
+    }
+
+    private static function keysHelperText(?string $shopUrl): HtmlString
+    {
+        $keysUrl = rtrim((string) $shopUrl, '/').'/wp-admin/admin.php?page=wc-settings&tab=advanced&section=keys';
+
+        return new HtmlString('Get your API keys from <a href="'.e($keysUrl).'" target="_blank" rel="noopener noreferrer" class="underline">'.e($keysUrl).'</a>.');
     }
 }
