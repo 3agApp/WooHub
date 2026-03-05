@@ -31,6 +31,7 @@ class DashboardPanelProvider extends PanelProvider
             ->registration()
             ->tenant(Organization::class)
             ->tenantRegistration(RegisterOrganization::class)
+            ->spa()
             ->colors([
                 'primary' => Color::Amber,
             ])
