@@ -7,18 +7,27 @@ use App\Models\WooOrder;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class RevenueAnalyticsService
 {
     /**
      * @var list<string>
      */
-    public const REVENUE_STATUSES = ['processing', 'completed', 'on-hold'];
+    public const DEFAULT_REVENUE_STATUSES = ['processing', 'completed'];
+
+    /**
+     * @var list<string>
+     */
+    public const ALLOWED_REVENUE_STATUSES = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed', 'trash'];
+
+    /**
+     * @var list<string>
+     */
+    public const ALLOWED_GRANULARITIES = ['day', 'week', 'month'];
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array{start:CarbonImmutable,end:CarbonImmutable,shop_ids:Collection<int, int>,aggregation:string}
+     * @return array{start:CarbonImmutable,end:CarbonImmutable,shop_ids:Collection<int, int>,aggregation:string,granularity:string,revenue_statuses:list<string>}
      */
     public function resolveFilters(Organization $organization, array $filters): array
     {
@@ -41,6 +50,8 @@ class RevenueAnalyticsService
             'end' => $end->endOfDay(),
             'shop_ids' => $this->resolveShopIds($organization, $filters['shopIds'] ?? []),
             'aggregation' => $aggregation,
+            'granularity' => $this->resolveGranularity($filters['trendGranularity'] ?? null),
+            'revenue_statuses' => $this->resolveRevenueStatuses($filters['revenueStatuses'] ?? null),
         ];
     }
 
@@ -87,7 +98,7 @@ class RevenueAnalyticsService
 
         $baseOrdersQuery = $this->ordersQuery($organization, $filters);
         $currentRevenue = (float) (clone $baseOrdersQuery)
-            ->whereIn('status', self::REVENUE_STATUSES)
+            ->whereIn('status', $resolved['revenue_statuses'])
             ->sum('total');
 
         $previousEnd = $resolved['start']->subDay()->endOfDay();
@@ -96,7 +107,7 @@ class RevenueAnalyticsService
         $previousRevenue = (float) WooOrder::query()
             ->whereIn('woo_shop_id', $resolved['shop_ids'])
             ->whereBetween('order_created_at', [$previousStart, $previousEnd])
-            ->whereIn('status', self::REVENUE_STATUSES)
+            ->whereIn('status', $resolved['revenue_statuses'])
             ->sum('total');
 
         $growthRate = $previousRevenue > 0
@@ -121,29 +132,30 @@ class RevenueAnalyticsService
     public function trendChart(Organization $organization, array $filters): array
     {
         $resolved = $this->resolveFilters($organization, $filters);
-        $labels = $this->buildDateLabels($resolved['start'], $resolved['end']);
+        $bucketStarts = $this->buildBucketStarts($resolved['start'], $resolved['end'], $resolved['granularity']);
+        $labels = $this->buildBucketLabels($bucketStarts, $resolved['granularity']);
 
         if ($resolved['aggregation'] === 'by_shop') {
             return [
                 'labels' => $labels,
-                'datasets' => $this->datasetsByShop($organization, $resolved, $labels),
+                'datasets' => $this->datasetsByShop($organization, $resolved, $bucketStarts),
             ];
         }
 
-        $dailyRevenue = WooOrder::query()
-            ->whereIn('woo_shop_id', $resolved['shop_ids'])
-            ->whereBetween('order_created_at', [$resolved['start'], $resolved['end']])
-            ->whereIn('status', self::REVENUE_STATUSES)
-            ->selectRaw('DATE(order_created_at) as order_date, SUM(total) as revenue_total')
-            ->groupBy(DB::raw('DATE(order_created_at)'))
-            ->pluck('revenue_total', 'order_date');
+        $aggregatedRevenue = $this->aggregateRevenueByBuckets(
+            $resolved['shop_ids'],
+            $resolved['start'],
+            $resolved['end'],
+            $resolved['revenue_statuses'],
+            $resolved['granularity'],
+        );
 
         return [
             'labels' => $labels,
             'datasets' => [
                 [
                     'label' => 'All selected shops',
-                    'data' => $this->mapSeriesData($resolved['start'], $resolved['end'], $dailyRevenue),
+                    'data' => $this->mapBucketSeriesData($bucketStarts, $aggregatedRevenue, $resolved['granularity']),
                     'tension' => 0.25,
                 ],
             ],
@@ -151,65 +163,169 @@ class RevenueAnalyticsService
     }
 
     /**
-     * @param  array{start:CarbonImmutable,end:CarbonImmutable,shop_ids:Collection<int, int>,aggregation:string}  $resolved
-     * @param  list<string>  $labels
+     * @param  array{start:CarbonImmutable,end:CarbonImmutable,shop_ids:Collection<int, int>,aggregation:string,granularity:string,revenue_statuses:list<string>}  $resolved
+     * @param  list<CarbonImmutable>  $bucketStarts
      * @return list<array<string,mixed>>
      */
-    private function datasetsByShop(Organization $organization, array $resolved, array $labels): array
+    private function datasetsByShop(Organization $organization, array $resolved, array $bucketStarts): array
     {
         $shops = $organization->wooShops()
             ->whereIn('id', $resolved['shop_ids'])
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return $shops->map(function (mixed $shop) use ($resolved): array {
-            $dailyRevenue = WooOrder::query()
-                ->where('woo_shop_id', $shop->id)
-                ->whereBetween('order_created_at', [$resolved['start'], $resolved['end']])
-                ->whereIn('status', self::REVENUE_STATUSES)
-                ->selectRaw('DATE(order_created_at) as order_date, SUM(total) as revenue_total')
-                ->groupBy(DB::raw('DATE(order_created_at)'))
-                ->pluck('revenue_total', 'order_date');
+        return $shops->map(function (mixed $shop) use ($resolved, $bucketStarts): array {
+            $aggregatedRevenue = $this->aggregateRevenueByBuckets(
+                collect([(int) $shop->id]),
+                $resolved['start'],
+                $resolved['end'],
+                $resolved['revenue_statuses'],
+                $resolved['granularity'],
+            );
 
             return [
                 'label' => (string) $shop->name,
-                'data' => $this->mapSeriesData($resolved['start'], $resolved['end'], $dailyRevenue),
+                'data' => $this->mapBucketSeriesData($bucketStarts, $aggregatedRevenue, $resolved['granularity']),
                 'tension' => 0.25,
             ];
         })->values()->all();
     }
 
     /**
-     * @return list<string>
+     * @return list<CarbonImmutable>
      */
-    private function buildDateLabels(CarbonImmutable $start, CarbonImmutable $end): array
+    private function buildBucketStarts(CarbonImmutable $start, CarbonImmutable $end, string $granularity): array
     {
-        $labels = [];
-        $cursor = $start;
+        $buckets = [];
+        $cursor = $this->normalizeBucketStart($start, $granularity);
 
         while ($cursor->lessThanOrEqualTo($end)) {
-            $labels[] = $cursor->format('d M');
-            $cursor = $cursor->addDay();
+            $buckets[] = $cursor;
+            $cursor = $this->nextBucket($cursor, $granularity);
         }
 
-        return $labels;
+        return $buckets;
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int|string, mixed>  $dailyRevenue
-     * @return list<float>
+     * @param  list<CarbonImmutable>  $bucketStarts
+     * @return list<string>
      */
-    private function mapSeriesData(CarbonImmutable $start, CarbonImmutable $end, Collection $dailyRevenue): array
+    private function buildBucketLabels(array $bucketStarts, string $granularity): array
     {
-        $points = [];
-        $cursor = $start;
+        return collect($bucketStarts)
+            ->map(fn (CarbonImmutable $bucketStart): string => $this->formatBucketLabel($bucketStart, $granularity))
+            ->values()
+            ->all();
+    }
 
-        while ($cursor->lessThanOrEqualTo($end)) {
-            $key = $cursor->toDateString();
-            $points[] = (float) ($dailyRevenue[$key] ?? 0);
-            $cursor = $cursor->addDay();
+    /**
+     * @param  Collection<int, int>  $shopIds
+     * @param  list<string>  $revenueStatuses
+     * @return Collection<string, float>
+     */
+    private function aggregateRevenueByBuckets(
+        Collection $shopIds,
+        CarbonImmutable $start,
+        CarbonImmutable $end,
+        array $revenueStatuses,
+        string $granularity,
+    ): Collection {
+        $orders = WooOrder::query()
+            ->whereIn('woo_shop_id', $shopIds)
+            ->whereBetween('order_created_at', [$start, $end])
+            ->whereIn('status', $revenueStatuses)
+            ->get(['order_created_at', 'total']);
+
+        $totals = [];
+
+        foreach ($orders as $order) {
+            if (! $order->order_created_at) {
+                continue;
+            }
+
+            $key = $this->bucketKey(CarbonImmutable::instance($order->order_created_at), $granularity);
+            $totals[$key] = (float) ($totals[$key] ?? 0) + (float) $order->total;
         }
 
-        return $points;
+        return collect($totals);
+    }
+
+    /**
+     * @param  list<CarbonImmutable>  $bucketStarts
+     * @param  Collection<string, float>  $aggregatedRevenue
+     * @return list<float>
+     */
+    private function mapBucketSeriesData(array $bucketStarts, Collection $aggregatedRevenue, string $granularity): array
+    {
+        return collect($bucketStarts)
+            ->map(fn (CarbonImmutable $bucketStart): float => (float) ($aggregatedRevenue->get($this->bucketKey($bucketStart, $granularity)) ?? 0))
+            ->values()
+            ->all();
+    }
+
+    private function resolveGranularity(mixed $value): string
+    {
+        if (is_string($value) && in_array($value, self::ALLOWED_GRANULARITIES, true)) {
+            return $value;
+        }
+
+        return 'day';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveRevenueStatuses(mixed $statuses): array
+    {
+        $selected = is_array($statuses)
+            ? collect($statuses)
+                ->filter(fn (mixed $status): bool => is_string($status))
+                ->filter(fn (string $status): bool => in_array($status, self::ALLOWED_REVENUE_STATUSES, true))
+                ->values()
+                ->all()
+            : [];
+
+        if ($selected === []) {
+            return self::DEFAULT_REVENUE_STATUSES;
+        }
+
+        return array_values(array_unique($selected));
+    }
+
+    private function normalizeBucketStart(CarbonImmutable $date, string $granularity): CarbonImmutable
+    {
+        return match ($granularity) {
+            'month' => $date->startOfMonth(),
+            'week' => $date->startOfWeek(),
+            default => $date->startOfDay(),
+        };
+    }
+
+    private function nextBucket(CarbonImmutable $bucketStart, string $granularity): CarbonImmutable
+    {
+        return match ($granularity) {
+            'month' => $bucketStart->addMonth(),
+            'week' => $bucketStart->addWeek(),
+            default => $bucketStart->addDay(),
+        };
+    }
+
+    private function bucketKey(CarbonImmutable $date, string $granularity): string
+    {
+        return match ($granularity) {
+            'month' => $date->format('Y-m'),
+            'week' => $date->format('o-\\WW'),
+            default => $date->format('Y-m-d'),
+        };
+    }
+
+    private function formatBucketLabel(CarbonImmutable $bucketStart, string $granularity): string
+    {
+        return match ($granularity) {
+            'month' => $bucketStart->format('M Y'),
+            'week' => 'W'.$bucketStart->isoWeek().' '.$bucketStart->isoWeekYear(),
+            default => $bucketStart->format('d M'),
+        };
     }
 }

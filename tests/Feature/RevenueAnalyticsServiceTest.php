@@ -34,6 +34,13 @@ it('calculates current revenue, previous period revenue, and growth', function (
     ]);
 
     WooOrder::factory()->for($shop, 'wooShop')->create([
+        'status' => 'on-hold',
+        'total' => 220,
+        'currency' => 'CHF',
+        'order_created_at' => '2026-03-03 11:00:00',
+    ]);
+
+    WooOrder::factory()->for($shop, 'wooShop')->create([
         'status' => 'completed',
         'total' => 60,
         'currency' => 'CHF',
@@ -50,7 +57,7 @@ it('calculates current revenue, previous period revenue, and growth', function (
     expect($stats['current_revenue'])->toBe(150.0)
         ->and($stats['previous_revenue'])->toBe(60.0)
         ->and(round($stats['growth_rate'] ?? 0, 2))->toBe(150.0)
-        ->and($stats['orders_count'])->toBe(3)
+        ->and($stats['orders_count'])->toBe(4)
         ->and($stats['currency'])->toBe('CHF');
 
     Carbon::setTestNow();
@@ -99,4 +106,52 @@ it('builds chart datasets for combined and per-shop modes', function () {
         ->and($byShop['datasets'][1]['data'][1])->toBe(200.0);
 
     Carbon::setTestNow();
+});
+
+it('supports custom revenue statuses and monthly trend interval', function () {
+    $organization = Organization::factory()->create();
+    $shop = WooShop::factory()->for($organization)->create();
+
+    WooOrder::factory()->for($shop, 'wooShop')->create([
+        'status' => 'on-hold',
+        'total' => 80,
+        'order_created_at' => '2026-01-10 10:00:00',
+    ]);
+
+    WooOrder::factory()->for($shop, 'wooShop')->create([
+        'status' => 'on-hold',
+        'total' => 120,
+        'order_created_at' => '2026-02-18 10:00:00',
+    ]);
+
+    WooOrder::factory()->for($shop, 'wooShop')->create([
+        'status' => 'completed',
+        'total' => 500,
+        'order_created_at' => '2026-03-02 10:00:00',
+    ]);
+
+    $service = app(RevenueAnalyticsService::class);
+
+    $stats = $service->overviewStats($organization, [
+        'startDate' => '2026-01-01',
+        'endDate' => '2026-03-31',
+        'shopIds' => [$shop->id],
+        'revenueStatuses' => ['on-hold'],
+    ]);
+
+    expect($stats['current_revenue'])->toBe(200.0);
+
+    $trend = $service->trendChart($organization, [
+        'startDate' => '2026-01-01',
+        'endDate' => '2026-03-31',
+        'shopIds' => [$shop->id],
+        'aggregation' => 'combined',
+        'trendGranularity' => 'month',
+        'revenueStatuses' => ['on-hold'],
+    ]);
+
+    expect($trend['labels'])->toHaveCount(3)
+        ->and($trend['datasets'][0]['data'][0])->toBe(80.0)
+        ->and($trend['datasets'][0]['data'][1])->toBe(120.0)
+        ->and($trend['datasets'][0]['data'][2])->toBe(0.0);
 });

@@ -62,8 +62,37 @@ class Dashboard extends BaseDashboard
                                 'combined' => 'All selected shops combined',
                                 'by_shop' => 'Break down by shop',
                             ]),
+                        Select::make('trendGranularity')
+                            ->label('Trend interval')
+                            ->default('day')
+                            ->options([
+                                'day' => 'Daily',
+                                'week' => 'Weekly',
+                                'month' => 'Monthly',
+                            ]),
+                        Select::make('revenueStatuses')
+                            ->label('Revenue statuses')
+                            ->multiple()
+                            ->columnSpan([
+                                'md' => 2,
+                                'xl' => 3,
+                            ])
+                            ->default(RevenueAnalyticsService::DEFAULT_REVENUE_STATUSES)
+                            ->options([
+                                'pending' => 'Pending payment',
+                                'processing' => 'Processing',
+                                'on-hold' => 'On hold',
+                                'completed' => 'Completed',
+                                'cancelled' => 'Cancelled',
+                                'refunded' => 'Refunded',
+                                'failed' => 'Failed',
+                                'trash' => 'Trash',
+                            ]),
                     ])
-                    ->columns(4),
+                    ->columns([
+                        'md' => 2,
+                        'xl' => 3,
+                    ]),
             ]);
     }
 
